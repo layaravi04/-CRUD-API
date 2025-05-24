@@ -1,0 +1,150 @@
+const express = require('express');
+const app = express();
+const port = 3000;
+
+app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+let items = [
+  { id: 1, task: 'Eat', createdAt: '2025-05-24T13:00:00Z', updatedAt: null },
+  { id: 2, task: 'Sleep', createdAt: '2025-05-24T13:05:00Z', updatedAt: null },
+  { id: 3, task: 'Run', createdAt: '2025-05-24T13:10:00Z', updatedAt: null }
+];
+const findItem = (id) => items.find(item => item.id === id);
+const generateId = () => items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
+
+app.get('/items', (req, res) => {
+  const { search, sort = 'desc' } = req.query;
+  let result = [...items];
+
+  if (search) {
+    result = result.filter(item =>
+      item.task.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  if (sort === 'asc') {
+    result.sort((a, b) => a.id - b.id);
+  } else {
+    result.sort((a, b) => b.id - a.id);
+  }
+
+  res.json({
+    count: result.length,
+    results: result
+  });
+});
+
+app.get('/items/:id', (req, res) => {
+  const itemId = parseInt(req.params.id);
+  const item = findItem(itemId);
+
+  if (!item) {
+    return res.status(404).json({
+      error: 'Item not found',
+      suggestion: `Try an ID between 1-${items.length}`
+    });
+  }
+
+  res.json(item);
+});
+app.post('/items', (req, res) => {
+  const { task } = req.body;
+
+  if (!task?.trim()) {
+    return res.status(400).json({
+      error: 'Task is required',
+      example: { task: "Your new task here" }
+    });
+  }
+
+  const newItem = {
+    id: generateId(),
+    task: task.trim(),
+    createdAt: new Date().toISOString(),
+    updatedAt: null
+  };
+
+  items.push(newItem);
+  res.status(201).json({
+    message: 'Task created successfully! 🎉',
+    item: newItem
+  });
+});
+
+app.put('/items/:id', (req, res) => {
+  const itemId = parseInt(req.params.id);
+  const { task } = req.body;
+  const item = findItem(itemId);
+
+  if (!item) {
+    return res.status(404).json({
+      error: 'Item not found',
+      availableItems: items.map(i => i.id)
+    });
+  }
+
+  if (!task?.trim()) {
+    return res.status(400).json({
+      error: 'Task is required for update',
+      currentTask: item.task
+    });
+  }
+
+  item.task = task.trim();
+  item.updatedAt = new Date().toISOString();
+
+  res.json({
+    message: 'Task updated successfully! ✨',
+    item
+  });
+});
+
+app.delete('/items/:id', (req, res) => {
+  const itemId = parseInt(req.params.id);
+  const itemIndex = items.findIndex(i => i.id === itemId);
+
+  if (itemIndex === -1) {
+    return res.status(404).json({
+      error: 'Item not found',
+      tip: 'No deletion occurred'
+    });
+  }
+
+  const deletedItem = items.splice(itemIndex, 1)[0];
+  res.json({
+    message: 'Task deleted successfully! 💥',
+    deletedItem
+  });
+});
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Endpoint not found',
+    availableEndpoints: [
+      'GET    /items',
+      'GET    /items/:id',
+      'POST   /items',
+      'PUT    /items/:id',
+      'DELETE /items/:id'
+    ]
+  });
+});
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Something went wrong! 💀',
+    message: 'Our team of highly trained monkeys has been alerted'
+  });
+});
+
+app.listen(port, () => {
+  console.log(`
+  🚀 Productivity API launched!
+  📡 Listening at: http://localhost:3000/items
+  📅 Started at: ${new Date().toISOString()}
+  `);
+});
+a
